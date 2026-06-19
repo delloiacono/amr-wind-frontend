@@ -1,0 +1,42 @@
+# ----- BEGIN turbine type setup input file ----
+turbines:
+  IEA22MW_ALM:     # This is an arbitrary, unique name
+    # OpenFAST files from the repo git@github.com:IEAWindSystems/IEA-22-280-RWT.git
+    turbinetype_name: Monopile_IEA22MW_ALM_OF4p1
+    turbinetype_comment: OpenFAST 4.1 model
+    Actuator_type: TurbineFastLine
+    Actuator_openfast_input_file: 
+      OpenFAST4p1_Monopile_IEA22MW/IEA-22-280-RWT-Monopile/IEA-22-280-RWT-Monopile.fst
+    Actuator_rotor_diameter: 284
+    Actuator_hub_height: 170
+    Actuator_num_points_blade: 60
+    Actuator_num_points_tower: 14
+    Actuator_epsilon: [10.0, 10.0, 10.0] #[2.0, 2.0, 2.0]
+    Actuator_epsilon_tower: [10.0, 10.0, 10.0] #[2.0, 2.0, 2.0]
+    Actuator_openfast_start_time: 0.0
+    Actuator_openfast_stop_time: 7200.0
+    Actuator_nacelle_drag_coeff: 0.5
+    Actuator_nacelle_area: 55.5
+    Actuator_output_frequency: 10
+    turbinetype_filedir: OpenFAST4p1_Monopile_IEA22MW
+
+  IEA22MW_ADM:     # This is an arbitrary, unique name
+    # OpenFAST files from the repo git@github.com:IEAWindSystems/IEA-22-280-RWT.git
+    turbinetype_name: Monopile_IEA22MW_ADM_OF4p1
+    turbinetype_comment: OpenFAST 4.1 model
+    Actuator_type: TurbineFastDisk
+    Actuator_openfast_input_file: 
+      OpenFAST4p1_Monopile_IEA22MW/IEA-22-280-RWT-Monopile/IEA-22-280-RWT-Monopile.fst
+    Actuator_rotor_diameter: 284
+    Actuator_hub_height: 170
+    Actuator_num_points_blade: 60
+    Actuator_num_points_tower: 14
+    Actuator_epsilon: [10.0, 10.0, 10.0] #[2.0, 2.0, 2.0]
+    Actuator_epsilon_tower: [10.0, 10.0, 10.0] #[2.0, 2.0, 2.0]
+    Actuator_openfast_start_time: 0.0
+    Actuator_openfast_stop_time: 7200.0
+    Actuator_nacelle_drag_coeff: 0.5
+    Actuator_nacelle_area: 55.5
+    Actuator_output_frequency: 10
+    turbinetype_filedir: OpenFAST4p1_Monopile_IEA22MW
+# ----- END turbine type input file ------

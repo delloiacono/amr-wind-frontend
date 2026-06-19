@@ -1,0 +1,77 @@
+# Download the openfast model from this repo
+modelsource:
+  gitrepo: git@github.com:IEAWindSystems/IEA-22-280-RWT.git
+  branch: main
+  gitdirs:
+    - OpenFAST/IEA-22-280-RWT-Semi
+    - OpenFAST/IEA-22-280-RWT
+  #downloaddir: IEA-22-280-RWT-GIT   # destination for clone (optional)
+  copyaction:                       # copy files out from git repo (optional)
+    source: IEA-22-280-RWT/OpenFAST
+    dest: OpenFAST4p1_Floating_IEA22MW
+  deleteafterdownload: True         # Delete the git repo after d/l (optional)
+
+# Edit the model parameters in this section
+modelparams:
+  fstfilename: OpenFAST4p1_Floating_IEA22MW/IEA-22-280-RWT-Semi/IEA-22-280-RWT-Semi.fst
+  postconfigcmd:  "sed -i -e '/WavesF2xi/d' -e '/WavesF2yi/d' -e '/WavesF2zi/d' -e '/WavesM2xi/d' -e '/WavesM2yi/d' -e '/WavesM2zi/d' OpenFAST4p1_Floating_IEA22MW/IEA-22-280-RWT-Semi/IEA-22-280-RWT-Semi_HydroDyn.dat"
+
+  # Specify any changes to OpenFAST parameters below
+  # Possible files to edit are: FSTFile, EDFile, AeroFile, ServoFile, HydroFile, MooringFile, SubFile, DISCONFile
+  FSTFile:
+    DT: 0.005
+    CompInflow: 2
+    OutFileFmt: 3
+  AeroFile:
+    Wake_Mod: 0
+    UA_Mod: 0
+  ServoFile:
+    # THIS ROSCO PATH NEEDS TO BE EDITED!
+    DLL_FileName: /zfs60/nobackup/delloiacono/work/exawind/version_12_11_2025/exawind-manager/spack/opt/spack/linux-zen4/rosco-2.9.0-mw7wmudmhmd7fnktirvixjelx3tqv3eq/lib/libdiscon.so
+    #DLL_FileName: /projects/wind_uq/lcheung/AMRWindBuilds/hfm.20250722/ROSCO/rosco/controller/build/libdiscon.so
+  DISCONFile:
+    Fl_Mode: 2
+
+# Write the turbine yamlfile
+writeturbineyaml: True
+turbineyamlfile: FLOATING_IEA22MW_OF4p1.yaml
+
+# This will be copied over to turbineyamlfile
+turbines:
+  IEA22MW_ALM:     # This is an arbitrary, unique name
+    # OpenFAST files from the repo git@github.com:IEAWindSystems/IEA-22-280-RWT.git
+    turbinetype_name:             "Floating_IEA22MW_ALM_OF4p1"
+    turbinetype_comment:          "OpenFAST 4.1 model"
+    Actuator_type:                TurbineFastLine
+    Actuator_openfast_input_file: OpenFAST4p1_Floating_IEA22MW/IEA-22-280-RWT-Semi/IEA-22-280-RWT-Semi.fst
+    Actuator_rotor_diameter:      284
+    Actuator_hub_height:          170
+    Actuator_num_points_blade:    60
+    Actuator_num_points_tower:    14
+    Actuator_epsilon:             [2.0, 2.0, 2.0]
+    Actuator_epsilon_tower:       [2.0, 2.0, 2.0]
+    Actuator_openfast_start_time: 0.0
+    Actuator_openfast_stop_time:  7200.0
+    Actuator_nacelle_drag_coeff:  0.5
+    Actuator_nacelle_area:        55.5
+    Actuator_output_frequency:    10
+    turbinetype_filedir:          OpenFAST4p1_Floating_IEA22MW
+
+  IEA22MW_ADM:     # This is an arbitrary, unique name
+    # OpenFAST files from the repo git@github.com:IEAWindSystems/IEA-22-280-RWT.git
+    turbinetype_name:             "Floating_IEA22MW_ADM_OF4p1"
+    turbinetype_comment:          "OpenFAST 4.1 model"
+    Actuator_type:                TurbineFastDisk
+    Actuator_openfast_input_file: OpenFAST4p1_Floating_IEA22MW/IEA-22-280-RWT-Semi/IEA-22-280-RWT-Semi.fst
+    Actuator_rotor_diameter:      284
+    Actuator_hub_height:          170
+    Actuator_num_points_blade:    60
+    Actuator_num_points_tower:    14
+    Actuator_epsilon:             [2.0, 2.0, 2.0]
+    Actuator_epsilon_tower:       [2.0, 2.0, 2.0]
+    Actuator_openfast_start_time: 0.0
+    Actuator_openfast_stop_time:  7200.0
+    Actuator_nacelle_drag_coeff:  0.5
+    Actuator_nacelle_area:        55.5
+    Actuator_output_frequency:    10
+    turbinetype_filedir:          OpenFAST4p1_Floating_IEA22MW

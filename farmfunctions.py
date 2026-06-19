@@ -55,6 +55,47 @@ except:
     loaderkwargs = {}
     dumperkwargs = {'default_flow_style':False }
 
+# Global helper function for numpy-to-python conversion
+def convert_numpy_to_python(val):
+    """
+    Convert numpy types to native Python types for GUI compatibility.
+    Handles scalars, arrays, and nested structures.
+    
+    Args:
+        val: Input value (can be numpy scalar, array, list, or Python type)
+        
+    Returns:
+        Python-native equivalent of the input
+    """
+    # Handle numpy scalars and arrays
+    if hasattr(val, 'dtype'):  # Check if it's a numpy type
+        if np.isscalar(val):
+            # Handle numpy scalars
+            if np.issubdtype(val.dtype, np.integer):
+                return int(val)
+            elif np.issubdtype(val.dtype, np.floating):
+                return float(val)
+            elif np.issubdtype(val.dtype, np.complexfloating):
+                return complex(val)
+            else:
+                return val.item()  # Convert other numpy scalars to Python
+        else:
+            # Handle numpy arrays - convert to list of Python types
+            return [convert_numpy_to_python(x) for x in val]
+    
+    # Handle lists and tuples recursively
+    elif isinstance(val, (list, tuple)):
+        converted = [convert_numpy_to_python(x) for x in val]
+        return converted if isinstance(val, list) else tuple(converted)
+    
+    # Handle dictionaries recursively
+    elif isinstance(val, dict):
+        return {k: convert_numpy_to_python(v) for k, v in val.items()}
+    
+    # Return Python native types unchanged
+    else:
+        return val
+
 if useruamel:
     from ruamel.yaml.comments import CommentedMap 
     def comseq(d):
@@ -280,12 +321,12 @@ def refine_calcZone(zonename, zonedict, zonecenter, sx, cx, vx, scale):
     refinedict['tagging_name']         = zonename
     refinedict['tagging_shapes']       = zonename
     refinedict['tagging_type']         = 'GeometryRefinement'
-    refinedict['tagging_level']        = zonedict['level']
+    refinedict['tagging_level']        = convert_numpy_to_python(zonedict['level'])
     refinedict['tagging_geom_type']    = 'box'
-    refinedict['tagging_geom_origin']  = list(corner)
-    refinedict['tagging_geom_xaxis']   = list(axis1)
-    refinedict['tagging_geom_yaxis']   = list(axis2)
-    refinedict['tagging_geom_zaxis']   = list(axis3)
+    refinedict['tagging_geom_origin']  = convert_numpy_to_python(corner)
+    refinedict['tagging_geom_xaxis']   = convert_numpy_to_python(axis1)
+    refinedict['tagging_geom_yaxis']   = convert_numpy_to_python(axis2)
+    refinedict['tagging_geom_zaxis']   = convert_numpy_to_python(axis3)
     return refinedict
 
 def refine_createZoneForTurbine(self, turbname, turbinedict, zonedict,
@@ -464,6 +505,59 @@ def refine_createAllZones(self):
     return
 
 # ----------- Functions for wind farm turbines -------------
+def precursor_createDomain(self):
+    """
+    Create the domain for precursor simulation based on farm layout from csv input.
+    This function sets prob_lo, prob_hi, and n_cell based on the turbine positions
+    and domain size parameters.
+    """
+    reqheaders = ['name', 'x', 'y', 'type', 'yaw', 'hubheight']
+    optheaders = ['options']
+
+    # Get the csv input
+    csvstring  = self.inputvars['turbines_csvtextbox'].getval()    
+    df         = loadcsv(csvstring, stringinput=True, 
+                         reqheaders=reqheaders, optheaders=optheaders)
+    alldf = dataframe2dict(df, reqheaders, optheaders, dictkeys=optheaders)
+
+    # Calculate the farm center
+    AvgCenter = getTurbAvgCenter(self, alldf)    
+
+    createnewdomain = self.inputvars['turbines_createnewdomain'].getval()
+
+    # Set prob_lo/prob_hi/n_cell if necessary
+    if createnewdomain:
+        # Get the farm domain size
+        domainsize   = self.inputvars['turbines_domainsize'].getval()    
+        if domainsize is None:
+            # WARNING
+            print("ERROR: Farm domain size is not valid!")
+            return
+        if self.inputvars['turbines_freespace'].getval():
+            groundoffset = -0.5*domainsize[2]
+        else:
+            groundoffset = 0.0
+        corner1 = [AvgCenter[0] - 0.5*domainsize[0],
+                   AvgCenter[1] - 0.5*domainsize[1],
+                   0.0+groundoffset]
+        corner2 = [AvgCenter[0] + 0.5*domainsize[0],
+                   AvgCenter[1] + 0.5*domainsize[1],
+                   domainsize[2]+groundoffset]
+        self.inputvars['prob_lo'].setval(corner1)
+        self.inputvars['prob_hi'].setval(corner2)
+
+        # Set the mesh size (if necessary)
+        backgrounddx = self.inputvars['turbines_backgroundmeshsize'].getval()
+        if backgrounddx is not None:
+            Nx = int(round(domainsize[0]/backgrounddx))
+            Ny = int(round(domainsize[1]/backgrounddx))
+            Nz = int(round(domainsize[2]/backgrounddx))
+            self.inputvars['n_cell'].setval([Nx, Ny, Nz])
+    else:
+        print("Warning: turbines_createnewdomain is set to False. Domain not created.")
+    
+    return
+
 def convertLatLong(x, y, useutm, coordsys, stoponerror=True):
     """
     Convert lat/long to utm x/y if necessary
@@ -950,8 +1044,8 @@ def sampling_createDictForTurbine(self, turbname, tdict, pdict, defaultopt):
         sampledict['sampling_name']         = probename
         sampledict['sampling_type']         = 'LineSampler'
         sampledict['sampling_l_num_points'] = N1
-        sampledict['sampling_l_start']      = clstart
-        sampledict['sampling_l_end']        = clend
+        sampledict['sampling_l_start']      = convert_numpy_to_python(clstart)
+        sampledict['sampling_l_end']        = convert_numpy_to_python(clend)
     # --- Create rotorplane sampling plane --- 
     elif probetype == 'rotorplane':
         # Calculate the geometry
@@ -982,18 +1076,18 @@ def sampling_createDictForTurbine(self, turbname, tdict, pdict, defaultopt):
         sampledict['sampling_name']         = probename
         sampledict['sampling_type']         = 'PlaneSampler'
         sampledict['sampling_p_num_points'] = [N1, N2]
-        sampledict['sampling_p_origin']     = origin
-        sampledict['sampling_p_axis1']      = crossstream*L1
-        sampledict['sampling_p_axis2']      = vert*L2
+        sampledict['sampling_p_origin']     = convert_numpy_to_python(origin)
+        sampledict['sampling_p_axis1']      = convert_numpy_to_python(crossstream*L1)
+        sampledict['sampling_p_axis2']      = convert_numpy_to_python(vert*L2)
 
         # Calculate offsets
         noffsets   = int(getdictval(pdict['options'], 'noffsets', defaultopt))
         if noffsets>0:
             downstream = scale*float(pdict['downstream'])        
             offsetvec  = np.linspace(0, upstream+downstream, noffsets+1)
-            offsetstr  = ' '.join([repr(x) for x in offsetvec])
-            sampledict['sampling_p_normal']  = streamwise
-            sampledict['sampling_p_offset_vector'] = streamwise
+            offsetstr  = ' '.join([repr(x) for x in convert_numpy_to_python(offsetvec)])
+            sampledict['sampling_p_normal']  = convert_numpy_to_python(streamwise)
+            sampledict['sampling_p_offset_vector'] = convert_numpy_to_python(streamwise)
             sampledict['sampling_p_offsets'] = offsetstr
     # --- Create hub-height sampling planes --- 
     elif probetype == 'hubheight':
@@ -1022,18 +1116,18 @@ def sampling_createDictForTurbine(self, turbname, tdict, pdict, defaultopt):
         sampledict['sampling_name']         = probename
         sampledict['sampling_type']         = 'PlaneSampler'
         sampledict['sampling_p_num_points'] = [N1, N2]
-        sampledict['sampling_p_origin']     = origin
-        sampledict['sampling_p_axis1']      = L1*streamwise
-        sampledict['sampling_p_axis2']      = L2*crossstream
+        sampledict['sampling_p_origin']     = convert_numpy_to_python(origin)
+        sampledict['sampling_p_axis1']      = convert_numpy_to_python(L1*streamwise)
+        sampledict['sampling_p_axis2']      = convert_numpy_to_python(L2*crossstream)
 
         # Calculate offsets
         noffsets   = int(getdictval(pdict['options'], 'noffsets', defaultopt))
         if noffsets>0:
             above      = scale*float(pdict['above'])
             offsetvec  = np.linspace(0, above+below, noffsets+1)
-            offsetstr  = ' '.join([repr(x) for x in offsetvec])
-            sampledict['sampling_p_normal']  = vert
-            sampledict['sampling_p_offset_vector']  = vert
+            offsetstr  = ' '.join([repr(x) for x in convert_numpy_to_python(offsetvec)])
+            sampledict['sampling_p_normal']  = convert_numpy_to_python(vert)
+            sampledict['sampling_p_offset_vector']  = convert_numpy_to_python(vert)
             sampledict['sampling_p_offsets'] = offsetstr
     # --- Create streamwise sampling planes --- 
     elif probetype == 'streamwise':
@@ -1061,19 +1155,19 @@ def sampling_createDictForTurbine(self, turbname, tdict, pdict, defaultopt):
         sampledict['sampling_name']         = probename
         sampledict['sampling_type']         = 'PlaneSampler'
         sampledict['sampling_p_num_points'] = [N1, N2]
-        sampledict['sampling_p_origin']     = origin
-        sampledict['sampling_p_axis1']      = L1*streamwise
-        sampledict['sampling_p_axis2']      = L2*vert
+        sampledict['sampling_p_origin']     = convert_numpy_to_python(origin)
+        sampledict['sampling_p_axis1']      = convert_numpy_to_python(L1*streamwise)
+        sampledict['sampling_p_axis2']      = convert_numpy_to_python(L2*vert)
 
         # Calculate offsets
         noffsets   = int(getdictval(pdict['options'], 'noffsets', defaultopt))
         if noffsets>0:
             lateral    = scale*float(pdict['lateral'])
             offsetvec  = np.linspace(0, lateral, noffsets+1)
-            offsetstr  = ' '.join([repr(x) for x in offsetvec])
-            sampledict['sampling_p_normal']  = crossstream
-            sampledict['sampling_p_offset_vector']  = crossstream
-            sampledict['sampling_p_offsets'] = offsetstr        
+            offsetstr  = ' '.join([repr(x) for x in convert_numpy_to_python(offsetvec)])
+            sampledict['sampling_p_normal']  = convert_numpy_to_python(crossstream)
+            sampledict['sampling_p_offset_vector']  = convert_numpy_to_python(crossstream)
+            sampledict['sampling_p_offsets'] = offsetstr     
     else:
         print("ERROR: probetype %s not recognized"%probetype)
 
@@ -1202,8 +1296,8 @@ def sampling_createDictForFarm(self, pdict, AvgCenter,
         sampledict['sampling_name']         = probename
         sampledict['sampling_type']         = 'LineSampler'
         sampledict['sampling_l_num_points'] = N1
-        sampledict['sampling_l_start']      = clstart
-        sampledict['sampling_l_end']        = clend
+        sampledict['sampling_l_start']      = convert_numpy_to_python(clstart)
+        sampledict['sampling_l_end']        = convert_numpy_to_python(clend)    
     # --- Create hub-height sampling planes --- 
     elif probetype == 'hubheight':
         # Calculate the geometry
@@ -1241,18 +1335,18 @@ def sampling_createDictForFarm(self, pdict, AvgCenter,
         sampledict['sampling_name']         = probename
         sampledict['sampling_type']         = 'PlaneSampler'
         sampledict['sampling_p_num_points'] = [N1, N2]
-        sampledict['sampling_p_origin']     = origin
-        sampledict['sampling_p_axis1']      = L1*streamwise
-        sampledict['sampling_p_axis2']      = L2*crossstream
+        sampledict['sampling_p_origin']     = convert_numpy_to_python(origin)
+        sampledict['sampling_p_axis1']      = convert_numpy_to_python(L1*streamwise)
+        sampledict['sampling_p_axis2']      = convert_numpy_to_python(L2*crossstream)
 
         # Calculate offsets
         noffsets   = int(getdictval(pdict['options'], 'noffsets', defaultopt))
         if noffsets>0:
             above      = scale*float(pdict['above'])
             offsetvec  = np.linspace(0, above+below, noffsets+1)
-            offsetstr  = ' '.join([repr(x) for x in offsetvec])
-            sampledict['sampling_p_normal']  = vert
-            sampledict['sampling_p_offset_vector']  = vert
+            offsetstr  = ' '.join([repr(x) for x in convert_numpy_to_python(offsetvec)])
+            sampledict['sampling_p_normal']  = convert_numpy_to_python(vert)
+            sampledict['sampling_p_offset_vector']  = convert_numpy_to_python(vert)
             sampledict['sampling_p_offsets'] = offsetstr
     # --- Create rotorplane sampling plane --- 
     elif probetype == 'rotorplane':
@@ -1281,17 +1375,17 @@ def sampling_createDictForFarm(self, pdict, AvgCenter,
         sampledict['sampling_name']         = probename
         sampledict['sampling_type']         = 'PlaneSampler'
         sampledict['sampling_p_num_points'] = [N1, N2]
-        sampledict['sampling_p_origin']     = origin
-        sampledict['sampling_p_axis1']      = L1*crossstream
-        sampledict['sampling_p_axis2']      = L2*vert
+        sampledict['sampling_p_origin']     = convert_numpy_to_python(origin)
+        sampledict['sampling_p_axis1']      = convert_numpy_to_python(L1*crossstream)
+        sampledict['sampling_p_axis2']      = convert_numpy_to_python(L2*vert)
         # Calculate offsets
         noffsets   = int(getdictval(pdict['options'], 'noffsets', defaultopt))
         if noffsets>0:
             downstream = scale*float(pdict['downstream'])        
             offsetvec  = np.linspace(0, upstream+downstream, noffsets+1)
-            offsetstr  = ' '.join([repr(x) for x in offsetvec])
-            sampledict['sampling_p_normal']  = streamwise
-            sampledict['sampling_p_offset_vector']  = streamwise
+            offsetstr  = ' '.join([repr(x) for x in convert_numpy_to_python(offsetvec)])
+            sampledict['sampling_p_normal']  = convert_numpy_to_python(crossstream)
+            sampledict['sampling_p_offset_vector']  = convert_numpy_to_python(streamwise)
             sampledict['sampling_p_offsets'] = offsetstr
 
     # --- Create streamwise sampling planes --- 
@@ -1330,19 +1424,19 @@ def sampling_createDictForFarm(self, pdict, AvgCenter,
         sampledict['sampling_name']         = probename
         sampledict['sampling_type']         = 'PlaneSampler'
         sampledict['sampling_p_num_points'] = [N1, N2]
-        sampledict['sampling_p_origin']     = origin
-        sampledict['sampling_p_axis1']      = L1*streamwise
-        sampledict['sampling_p_axis2']      = L2*vert
+        sampledict['sampling_p_origin']     = convert_numpy_to_python(origin)
+        sampledict['sampling_p_axis1']      = convert_numpy_to_python(L1*streamwise)
+        sampledict['sampling_p_axis2']      = convert_numpy_to_python(L2*vert)
 
         # Calculate offsets
         noffsets   = int(getdictval(pdict['options'], 'noffsets', defaultopt))
         if noffsets>0:
             lateral    = scale*float(pdict['lateral'])
             offsetvec  = np.linspace(0, lateral, noffsets+1)
-            offsetstr  = ' '.join([repr(x) for x in offsetvec])
-            sampledict['sampling_p_normal']  = crossstream
-            sampledict['sampling_p_offset_vector']  = crossstream
-            sampledict['sampling_p_offsets'] = offsetstr        
+            offsetstr  = ' '.join([repr(x) for x in convert_numpy_to_python(offsetvec)])
+            sampledict['sampling_p_normal']  = convert_numpy_to_python(crossstream)
+            sampledict['sampling_p_offset_vector']  = convert_numpy_to_python(crossstream)
+            sampledict['sampling_p_offsets'] = offsetstr
     else:
         print("ERROR: probetype %s not recognized for farm centers"%probetype)
 

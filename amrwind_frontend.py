@@ -18,7 +18,7 @@ from functools import partial
 import tkyamlgui as tkyg
 import postproamrwindabl    as postpro
 import postproamrwindsample as ppsample
-import convert_abl_stats    as MMC_abl_stats
+import utilities.convert_abl_stats as MMC_abl_stats
 
 if sys.version_info[0] < 3:
     import Tkinter as Tk
@@ -1160,6 +1160,7 @@ class MyApp(tkyg.App, object):
     from farmfunctions import resetFarmSetup
     from farmfunctions import writeFarmSetupYAML, loadFarmSetupYAML
     from farmfunctions import refine_createAllZones, calc_FarmAvgProp, get_turbProp
+    from farmfunctions import precursor_createDomain
     from farmfunctions import turbines_createAllTurbines, turbines_previewAllTurbines
     from farmfunctions import sampling_createAllProbes
     from farmfunctions import sweep_SetupRunParamSweep
