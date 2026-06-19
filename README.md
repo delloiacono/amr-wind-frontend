@@ -1,3 +1,5 @@
+# ! Please note: this fork contains some changes compared to the official version and is not currently synchronised
+
 # AMR-Wind front end tool
 
 A tool to help setup, visualize, and postprocess AMR-Wind simulations.
